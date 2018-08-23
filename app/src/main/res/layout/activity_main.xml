@@ -59,6 +59,7 @@
         android:id="@+id/bt"
         android:text="切换用户"
         android:layout_gravity="center_horizontal"
+        android:visibility="gone"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 

@@ -35,14 +35,15 @@ class MainActivity : Activity() {
     private lateinit var db: SQLiteDatabase
     private val dbVersion = 1
     private val dbh = DbHelper(this, "hr.db", null, dbVersion)
-    private var t = 0
-//    private var count = 0//确认各月是否加载完毕
+    private var refresh = 0
+    private var t = 0//距今月数
+    private var count = 0//确认各月是否加载完毕
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         init()
-        bt.setOnClickListener {logout()}
+        bt.setOnClickListener { logout() }
     }
 
     private fun init() {
@@ -75,22 +76,33 @@ class MainActivity : Activity() {
             url = "http://mobile.faw.com.cn:8080/mmdhr/route/getdata.rest?methodName=login" +
                     "&params=[\"${account.text}\",\"${psw.text}\",\"http://10.7.65.34\"]" +
                     "&routeName=DBAdapter&Connection=Keep-Alive&qm_device_id=61bd3fa2ebbb3a6f561baad89f421b89ac818895"
-            val stringRequest1 = JsonObjectRequest(url, null,
-                    Response.Listener<JSONObject> { response ->
-                        if (response.optJSONObject("data").optBoolean("success")) {
-                            val editor = tokenP.edit()
-                            editor.putString("token", response.optJSONObject("data").optString("token"))
-                            editor.apply()
-                            token = tokenP.getString("token", "")
-                            Toast.makeText(applicationContext, "登录成功", Toast.LENGTH_SHORT).show()
-                            go()
-                        } else {
-                            Toast.makeText(applicationContext, "登录失败", Toast.LENGTH_SHORT).show()
-                        }
-                    }, Response.ErrorListener { })
-            queue.add<JSONObject>(stringRequest1)
+            login_json()
         }
         builder.show()
+    }
+
+    private fun login_json() {
+        val stringRequest1 = JsonObjectRequest(url, null,
+                Response.Listener<JSONObject> { response ->
+                    if (response.optJSONObject("data").optBoolean("success")) {
+                        val editor = tokenP.edit()
+                        editor.putString("token", response.optJSONObject("data").optString("token"))
+                        editor.apply()
+                        token = tokenP.getString("token", "")
+                        Toast.makeText(applicationContext, "登录成功", Toast.LENGTH_SHORT).show()
+                        go()
+                    } else {
+                        Toast.makeText(applicationContext, "登录失败", Toast.LENGTH_SHORT).show()
+                    }
+                }, Response.ErrorListener {
+            if (refresh < 5) {//连续5次尝试登陆
+                refresh += 1
+                login_json()
+            } else {
+                Toast.makeText(applicationContext, "网络不好，登录失败", Toast.LENGTH_SHORT).show()
+            }
+        })
+        queue.add<JSONObject>(stringRequest1)
     }
 
     private fun logout() {
@@ -105,11 +117,16 @@ class MainActivity : Activity() {
 
     private fun go() {
         val c = Calendar.getInstance()
+        val d = c.get(Calendar.DAY_OF_MONTH)
         val y = c.get(Calendar.YEAR)
         val m = c.get(Calendar.MONTH) + 1
         val sm = 7
         val sy = 2016
-        t = (y - sy) * 12 + m - sm
+        t = if (d < 20) {
+            (y - sy) * 12 + m - sm - 1
+        } else {
+            (y - sy) * 12 + m - sm
+        }
         var cy: Int
         var cm: Int
         var i: Int = 0
@@ -131,51 +148,57 @@ class MainActivity : Activity() {
                     "&qm_device_id=61bd3fa2ebbb3a6f561baad89f421b89ac818895"
             val stringRequest2 = JsonObjectRequest(url, null,
                     Response.Listener { response ->
-                        array1 = response.optJSONObject("data").optJSONArray("result")
-                        try {
-                            val cv = ContentValues()
-                            if (array1.length() > 0) {
-                                array2 = response.optJSONObject("data").optJSONArray("DetailResult")
-                                var s = array2.getJSONObject(1).optString("fieldname") + "：\n"
-                                for (j in 2..array2.length() - 1) {
-                                    s += array2.getJSONObject(j).optString("fieldname")
-                                    s += "："
-                                    s += array2.getJSONObject(j).optString("value")
-                                    s += if (j + 1 == array2.length()) "" else "\n"
-                                }
-                                cv.put("_id", array1.getJSONObject(1).optString("gvalue"))
-                                cv.put("yingji", array1.getJSONObject(2).optString("gvalue"))
-                                cv.put("koukuan", array1.getJSONObject(3).optString("gvalue"))
-                                cv.put("shide", array1.getJSONObject(5).optString("gvalue"))
-                                cv.put("det", s)
-                                db.insert("hr", null, cv)
-
-                            } else {
-                                if (month == "201612") {
-                                    cv.put("_id", month)
-                                    cv.put("yingji", "无数据")
-                                    cv.put("koukuan", "无数据")
-                                    cv.put("shide", "无数据")
-                                    cv.put("det", "无数据")
+                        if (response.optBoolean("success")) {
+                            array1 = response.optJSONObject("data").optJSONArray("result")
+                            try {
+                                val cv = ContentValues()
+                                if (array1.length() > 0) {
+                                    array2 = response.optJSONObject("data").optJSONArray("DetailResult")
+                                    var s = array2.getJSONObject(1).optString("fieldname") + "：\n"
+                                    for (j in 2..array2.length() - 1) {
+                                        s += array2.getJSONObject(j).optString("fieldname")
+                                        s += "："
+                                        s += array2.getJSONObject(j).optString("value")
+                                        s += if (j + 1 == array2.length()) "" else "\n"
+                                    }
+                                    cv.put("_id", array1.getJSONObject(1).optString("gvalue"))
+                                    cv.put("yingji", array1.getJSONObject(2).optString("gvalue"))
+                                    cv.put("koukuan", array1.getJSONObject(3).optString("gvalue"))
+                                    cv.put("shide", array1.getJSONObject(4).optString("gvalue"))
+                                    cv.put("det", s)
                                     db.insert("hr", null, cv)
+
+                                } else {
+                                    if (month == "201612") {
+                                        cv.put("_id", month)
+                                        cv.put("yingji", "无数据")
+                                        cv.put("koukuan", "无数据")
+                                        cv.put("shide", "无数据")
+                                        cv.put("det", "无数据")
+                                        db.insert("hr", null, cv)
+                                    }
                                 }
+//                            show()
+                            } catch (e: JSONException) {
+                                e.printStackTrace()
                             }
-//                            count += 1
-//                            if (count > t) {
-//                                show()
-//                            }
-                            show()
-                        } catch (e: JSONException) {
-                            e.printStackTrace()
                         }
-                    }, Response.ErrorListener { })
+                        count += 1
+                        if (count > t) {
+                            show()//有回复就show
+                        }
+                    }, Response.ErrorListener {
+                count += 1
+                if (count > t) {
+                    show()//没回复也show
+                } })
             queue.add<JSONObject>(stringRequest2)
         } else {
-//            count += 1
-//            if (count > t) {
-//                show()
-//            }
-            show()
+            count += 1
+            if (count > t) {
+                show()//数据库有数据直接显示
+            }
+//            show()
         }
     }
 
