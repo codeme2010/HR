@@ -1,5 +1,6 @@
 package com.codeme.hr
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentValues
@@ -59,6 +60,7 @@ class MainActivity : Activity() {
         }
     }
 
+    @SuppressLint("InflateParams")
     private fun login() {
         val inflater =
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
@@ -76,12 +78,12 @@ class MainActivity : Activity() {
             url = "http://mobile.faw.com.cn:8080/mmdhr/route/getdata.rest?methodName=login" +
                     "&params=[\"${account.text}\",\"${psw.text}\",\"http://10.7.65.34\"]" +
                     "&routeName=DBAdapter&Connection=Keep-Alive&qm_device_id=61bd3fa2ebbb3a6f561baad89f421b89ac818895"
-            login_json()
+            loginJson()
         }
         builder.show()
     }
 
-    private fun login_json() {
+    private fun loginJson() {
         val stringRequest1 = JsonObjectRequest(url, null,
                 Response.Listener<JSONObject> { response ->
                     if (response.optJSONObject("data").optBoolean("success")) {
@@ -97,7 +99,7 @@ class MainActivity : Activity() {
                 }, Response.ErrorListener {
             if (refresh < 5) {//连续5次尝试登陆
                 refresh += 1
-                login_json()
+                loginJson()
             } else {
                 Toast.makeText(applicationContext, "网络不好，登录失败", Toast.LENGTH_SHORT).show()
             }
@@ -129,7 +131,7 @@ class MainActivity : Activity() {
         }
         var cy: Int
         var cm: Int
-        var i: Int = 0
+        var i = 0
         while (i <= t) {
             cy = sy + (sm - 1 + i) / 12
             cm = (sm - 1 + i) % 12 + 1
@@ -140,47 +142,50 @@ class MainActivity : Activity() {
 
     private fun sch(month: String) {
         val cr: Cursor = db.query("hr", null, "_id='$month'", null, null, null, null)
-        val cr_count = cr.count
+        val crCount = cr.count
         cr.close()
-        if (cr_count == 0) {
+        if (crCount == 0) {
             url = "http://mobile.faw.com.cn:8080/mmdhr/route/getdata.rest?methodName=getView" +
                     "&params=[\"$month\"]&routeName=DBAdapter&mmd-token=$token" +
                     "&qm_device_id=61bd3fa2ebbb3a6f561baad89f421b89ac818895"
             val stringRequest2 = JsonObjectRequest(url, null,
                     Response.Listener { response ->
                         if (response.optBoolean("success")) {
-                            array1 = response.optJSONObject("data").optJSONArray("result")
-                            try {
-                                val cv = ContentValues()
-                                if (array1.length() > 0) {
-                                    array2 = response.optJSONObject("data").optJSONArray("DetailResult")
-                                    var s = array2.getJSONObject(1).optString("fieldname") + "：\n"
-                                    for (j in 2..array2.length() - 1) {
-                                        s += array2.getJSONObject(j).optString("fieldname")
-                                        s += "："
-                                        s += array2.getJSONObject(j).optString("value")
-                                        s += if (j + 1 == array2.length()) "" else "\n"
-                                    }
-                                    cv.put("_id", array1.getJSONObject(1).optString("gvalue"))
-                                    cv.put("yingji", array1.getJSONObject(2).optString("gvalue"))
-                                    cv.put("koukuan", array1.getJSONObject(3).optString("gvalue"))
-                                    cv.put("shide", array1.getJSONObject(4).optString("gvalue"))
-                                    cv.put("det", s)
-                                    db.insert("hr", null, cv)
-
-                                } else {
-                                    if (month == "201612") {
-                                        cv.put("_id", month)
-                                        cv.put("yingji", "无数据")
-                                        cv.put("koukuan", "无数据")
-                                        cv.put("shide", "无数据")
-                                        cv.put("det", "无数据")
+                            val temp = response.optJSONObject("data").optJSONArray("result")
+                            if (temp != null) {
+                                array1 = temp
+                                try {
+                                    val cv = ContentValues()
+                                    if (array1.length() > 0) {
+                                        array2 = response.optJSONObject("data").optJSONArray("DetailResult")
+                                        var s = array2.getJSONObject(1).optString("fieldname") + "：\n"
+                                        for (j in 2 until array2.length()) {
+                                            s += array2.getJSONObject(j).optString("fieldname")
+                                            s += "："
+                                            s += array2.getJSONObject(j).optString("value")
+                                            s += if (j + 1 == array2.length()) "" else "\n"
+                                        }
+                                        cv.put("_id", array1.getJSONObject(1).optString("gvalue"))
+                                        cv.put("yingji", array1.getJSONObject(2).optString("gvalue"))
+                                        cv.put("koukuan", array1.getJSONObject(3).optString("gvalue"))
+                                        cv.put("shide", array1.getJSONObject(4).optString("gvalue"))
+                                        cv.put("det", s)
                                         db.insert("hr", null, cv)
+
+                                    } else {
+                                        if (month == "201612") {
+                                            cv.put("_id", month)
+                                            cv.put("yingji", "无数据")
+                                            cv.put("koukuan", "无数据")
+                                            cv.put("shide", "无数据")
+                                            cv.put("det", "无数据")
+                                            db.insert("hr", null, cv)
+                                        }
                                     }
-                                }
 //                            show()
-                            } catch (e: JSONException) {
-                                e.printStackTrace()
+                                } catch (e: JSONException) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
                         count += 1
@@ -207,12 +212,13 @@ class MainActivity : Activity() {
         val to = intArrayOf(R.id.month, R.id.yingji, R.id.koukuan, R.id.shide)
         val cr = db.rawQuery("select * from hr order by _id", null)
         lv.adapter = SimpleCursorAdapter(this, R.layout.item, cr, from, to, 0)
+        lv.setSelection(lv.count-1)
         lv.onItemClickListener = AdapterView.OnItemClickListener { _, _, i, _ ->
             val c = lv.getItemAtPosition(i) as Cursor
-            val c_det = db.rawQuery("select det from hr where _id = '${c.getString(0)}'", null)
-            c_det.moveToFirst()
-            val det = c_det.getString(0)
-            c_det.close()
+            val cDet = db.rawQuery("select det from hr where _id = '${c.getString(0)}'", null)
+            cDet.moveToFirst()
+            val det = cDet.getString(0)
+            cDet.close()
             AlertDialog.Builder(this)
                     .setTitle(c.getString(0) + "工资明细")
                     .setMessage(det)

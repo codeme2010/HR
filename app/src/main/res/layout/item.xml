@@ -13,7 +13,7 @@
     <TextView
         android:id="@+id/month"
         android:layout_width="0dp"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:layout_weight="0.8"
         android:gravity="end|center_vertical"
         tools:text="月份" />
@@ -21,7 +21,7 @@
     <TextView
         android:id="@+id/yingji"
         android:layout_width="0dp"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:layout_weight="1"
         android:gravity="end|center_vertical"
         tools:text="应计" />
@@ -29,7 +29,7 @@
     <TextView
         android:id="@+id/koukuan"
         android:layout_width="0dp"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:layout_weight="1"
         android:gravity="end|center_vertical"
         tools:text="扣款" />
@@ -37,13 +37,13 @@
     <TextView
         android:id="@+id/shide"
         android:layout_width="0dp"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:layout_weight="1"
         android:gravity="end|center_vertical"
         tools:text="实得" />
 
     <View
         android:layout_width="0dp"
-        android:layout_height="30dp"
+        android:layout_height="25dp"
         android:layout_weight="0.3" />
 </LinearLayout>
